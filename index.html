@@ -594,6 +594,52 @@
     border-top: 1px solid var(--border);
   }
 
+
+  /* L-band dish photo gallery */
+  .lband-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5px;
+    margin-top: 1.5rem;
+    border: 1px solid var(--border);
+    background: var(--border);
+  }
+
+  .lband-photo-grid figure {
+    margin: 0;
+    min-width: 0;
+    background: var(--bg3);
+  }
+
+  .lband-photo-grid a {
+    display: block;
+    text-decoration: none;
+    background: var(--bg3);
+  }
+
+  .lband-photo-grid img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    display: block;
+    background: var(--bg3);
+    transition: opacity 0.2s;
+  }
+
+  .lband-photo-grid a:hover img { opacity: 0.86; }
+
+  .lband-photo-grid figcaption {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    line-height: 1.55;
+    padding: 0.75rem 0.9rem;
+    border-top: 1px solid var(--border);
+    background: var(--bg2);
+  }
+
   /* TECHNICAL REPORTS LIST */
   .docs-list {
     display: flex;
@@ -863,6 +909,7 @@
     .story-grid { grid-template-columns: 1fr; }
     .story-card.wide { grid-column: auto; grid-template-columns: 1fr; }
     .story-card img, .story-card.wide img { height: 210px; min-height: 0; }
+    .lband-photo-grid { grid-template-columns: 1fr; }
     .skills-grid { grid-template-columns: 1fr 1fr; }
     .exp-item { grid-template-columns: 1fr; }
     .exp-meta { padding-bottom: 0.75rem; }
@@ -1081,6 +1128,7 @@
       </div>
       <div class="project-docs">
         <a href="assets/MOON%20Set%20Up%20Documentation.pdf" class="doc-link" target="_blank" rel="noopener">Setup Documentation Log</a>
+        <a href="https://docs.google.com/document/d/1ly69OA6XXiGWTOXHYI4hj4g3MsM5K8_wVmu6nx5stwM/edit?usp=sharing" class="doc-link" target="_blank" rel="noopener noreferrer">MOON Full Project Log</a>
       </div>
 
       <div class="qfh-story-intro">
@@ -1268,25 +1316,42 @@
         </article>
       </div>
 
-      <!-- GEO PHASE — PARABOLIC DISH FEEDER CAD (static image) -->
+      <!-- GEO PHASE — MODIFIED L-BAND DISH WITH HANDMADE CANTENNA -->
       <div class="qfh-story-intro">
         <div class="qfh-story-kicker">Phase 2 · GEO Weather Imagery — Repurposed L-Band Dish</div>
         <p>
           With the LEO receive chain validated, the next objective is full-disk Earth imagery from GEO
           weather satellites. Because GEO downlinks require much higher gain than the QFH can provide,
-          we are repurposing a DirecTV parabolic dish as an L-band receiver and designing a custom
-          3D-printed feed assembly from scratch. The same engineering approach carries forward: model
-          the geometry, build the hardware, validate with RF measurements, and iterate from real passes.
+          we repurposed a DirecTV parabolic dish and fabricated a handmade cylindrical cantenna feed.
+          A custom 3D-printed clamp supports the feed near the dish focal region while allowing its
+          position and pointing to be adjusted during L-band reception tests.
         </p>
       </div>
 
-      <div class="cad-viewer-wrap">
-        <a href="assets/assemby.png" target="_blank" rel="noopener">
-          <img src="assets/assemby.png" alt="Parabolic dish feeder CAD assembly for GEO reception, modeled in Onshape" loading="lazy">
-        </a>
-        <div class="cad-viewer-caption">
-          Parabolic dish feeder · Onshape CAD · DirecTV dish L-band conversion · click to enlarge
-        </div>
+      <div class="lband-photo-grid">
+        <figure>
+          <a href="assets/IMG_8202.jpeg" target="_blank" rel="noopener">
+            <img
+              src="assets/IMG_8202.jpeg"
+              alt="Modified DirecTV satellite dish fitted with a handmade L-band cantenna feed"
+              loading="lazy">
+          </a>
+          <figcaption>
+            Repurposed DirecTV dish · handmade L-band cantenna · SDR receive chain · click to enlarge
+          </figcaption>
+        </figure>
+
+        <figure>
+          <a href="assets/IMG_8201.jpeg" target="_blank" rel="noopener">
+            <img
+              src="assets/IMG_8201.jpeg"
+              alt="Close-up of the handmade cantenna and custom 3D-printed mounting clamp"
+              loading="lazy">
+          </a>
+          <figcaption>
+            Cantenna feed close-up · custom 3D-printed adjustable mount · coaxial probe connection
+          </figcaption>
+        </figure>
       </div>
     </div>
 
