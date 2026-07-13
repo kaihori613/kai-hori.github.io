@@ -1,0 +1,1349 @@
+Console.Dimension = 40;
+Console.WordWrap  = 1;
+Console.DockMode  = 3;
+Console.BackColor = ColorTools.Black;
+Console.CurrentTextColor = ColorTools.Lime;
+Console.WindowTitle = "ODIN RF Link Analysis";
+Console.Show();
+ 
+Report "ODIN RF Link Analysis" to Console;
+Report "" to Console;
+ 
+Console.CurrentTextColor = ColorTools.White;
+Report "  Frequency     	: 8.4 GHz (X-band)" to Console;
+Report "  HGA modulation	: QPSK + CCSDS LDPC rate 1/3" to Console;
+Report "  LGA modulation	: BPSK residual-carrier TT&C" to Console;
+Report "  Transmitter   	: 70 W TWTA (TH4704C), 1.1 m steered HGA" to Console;
+Report "  Ground stations	: Cebreros, Malargue, New Norcia (35 m)" to Console;
+Report "  Duration       	: 1500 days from Oct 01 2026" to Console;
+Console.CurrentTextColor = ColorTools.Lime;
+Report "" to Console;
+ 
+Report "MODE 0 — LGA TT&C (default)" to Console;
+Console.CurrentTextColor = ColorTools.SteelBlue;
+Report "  Always active. Low-rate BPSK. No imaging." to Console;
+Console.CurrentTextColor = ColorTools.Lime;
+Report "" to Console;
+ 
+Report "MODE 1 — INSPECTION (near Solar Orbiter)" to Console;
+Console.CurrentTextColor = ColorTools.Green;
+Report "  Inspection windows (CDR 14-day campaigns):" to Console;
+Report "    Insp 1: Feb 08-22 2028     (day 495-509)" to Console;
+Report "    Insp 2: Nov 21-Dec 06 2028 (day 782-797)" to Console;
+Console.CurrentTextColor = ColorTools.Lime;
+Report "" to Console;
+ 
+Report "MODE 2 — HGA DOWNLINK (Earth approach)" to Console;
+Console.CurrentTextColor = ColorTools.Yellow;
+Report "  Downlink: geometry-driven every step" to Console;
+Report "    (station visible past Earth/Sun occultation" to Console;
+Report "     AND link margin >= 6 dB CDR floor)." to Console;
+Console.CurrentTextColor = ColorTools.Lime;
+Report "" to Console;
+ 
+// ============================================================================
+// FREEFORM 2 — Global Constants and Variables Definitions
+// ============================================================================
+ 
+// ----------------------------------------------------------------------------
+// STEP MODE CONSTANTS
+// ----------------------------------------------------------------------------
+ 
+Global Constant Variable STEP_MODE_STEP      = 0;
+Global Constant Variable STEP_MODE_STEP_TO   = 1;
+Global Constant Variable STEP_MODE_SET_STATE = 2;
+ 
+// ----------------------------------------------------------------------------
+// SIMULATION MODE CONSTANTS
+// ----------------------------------------------------------------------------
+ 
+Global Constant Variable SIM_MODE_SC_TO_GS = 0;
+Global Constant Variable SIM_MODE_SC_TO_SC = 1;
+
+// ----------------------------------------------------------------------------
+// ODIN OPERATING MODE CONSTANTS
+//   0 = LGA TT&C  (default / safe)
+//   1 = Inspection (near Solar Orbiter, cameras active)
+//   2 = HGA Downlink (Earth approach, SSM drain)
+// ----------------------------------------------------------------------------
+ 
+Global Constant Variable MODE_LGA_TTC       = 0;
+Global Constant Variable MODE_INSPECTION    = 1;
+Global Constant Variable MODE_HGA_DOWNLINK  = 2;
+
+// Current operating mode (updated each propagation step)
+Global Variable currentMode;
+currentMode = 0;
+
+// ----------------------------------------------------------------------------
+// INSPECTION PROXIMITY THRESHOLD
+// ODIN enters MODE_INSPECTION when it is within this range of Solar Orbiter.
+// ----------------------------------------------------------------------------
+ 
+Global Variable inspectionThresholdKm;
+inspectionThresholdKm = 5000000.0; //arbitrary 
+ 
+// Range from ODIN to Solar Orbiter (computed each step)
+Global Variable odinToSORange;
+odinToSORange = 0.0;
+ 
+// ----------------------------------------------------------------------------
+// SIMULATION TIMING
+// ----------------------------------------------------------------------------
+ 
+Global TimeSpan simulationStepSize;
+simulationStepSize = TIMESPAN(1 hours);
+ 
+Global TimeSpan simulationDuration;
+simulationDuration = TIMESPAN(1500 days);
+// ----------------------------------------------------------------------------
+// DATA STORAGE MODEL
+// Imaging: ~1 Mbps compressed = 0.36 GB/hr
+// HGA downlink at 20 kbps = ~0.009 GB/hr
+// Refine these values as the mission design matures.
+// ----------------------------------------------------------------------------
+ 
+Global Variable onboardDataGB;
+onboardDataGB = 0.0;
+ 
+Global Variable storageCapacityGB;
+storageCapacityGB = 256.0;  //again, arbitrary 
+ 
+Global Variable imagingRateGBperHour;
+imagingRateGBperHour = 0.36;
+ 
+Global Variable downlinkRateGBperHour;
+downlinkRateGBperHour = 0.009;
+ 
+// ----------------------------------------------------------------------------
+// FILE PATHS
+// ----------------------------------------------------------------------------
+ 
+String AntennaPatternFilename;
+AntennaPatternFilename = "C:\Users\horip\Downloads\FreeFlyer\Sample Mission Plans\_Support_Files\Antenna_Patterns\Antenna_Pattern_Example_ThetaPhi.txt";
+ 
+String VehicleEphemerisFilename;
+VehicleEphemerisFilename = "";
+ 
+// ----------------------------------------------------------------------------
+// GROUND STATION LIST
+// ----------------------------------------------------------------------------
+ 
+List<GroundStation> gsTargets[3];
+ 
+// ----------------------------------------------------------------------------
+// PLOT SERIES
+// ----------------------------------------------------------------------------
+ 
+List<PlotScatterSeries> powerToTargetData[3];
+List<PlotScatterSeries> signalToNoiseData[3];
+List<PlotScatterSeries> RFLinkMargin[3];
+List<PlotScatterSeries> dataRateData[3];
+ 
+// ----------------------------------------------------------------------------
+// COORDINATE SYSTEMS AND GRAPHICS OVERLAYS
+// ----------------------------------------------------------------------------
+ 
+CoordinateSystem csSource;
+ 
+GraphicsOverlay velocityGo;
+GraphicsOverlay antennaModelGo;
+GraphicsOverlay transmitterGo;
+ 
+// ----------------------------------------------------------------------------
+// DUMMY SPACECRAFT FOR ANTENNA PATTERN VISUALIZATION ONLY
+// Do NOT use this object for RF calculations.
+// ----------------------------------------------------------------------------
+ 
+Spacecraft RFTargetAntenna;
+ 
+// ----------------------------------------------------------------------------
+// SIMULATION CONTROL FLAGS
+// ----------------------------------------------------------------------------
+ 
+Variable animateView;
+animateView = 1;
+ 
+Variable animateGainView;
+animateGainView = 1;
+ 
+Variable calcDownLink;
+calcDownLink = 1;
+ 
+Variable SimMode;
+SimMode = SIM_MODE_SC_TO_GS;
+ 
+Variable UseEphemerisForSource;
+UseEphemerisForSource = 0;
+ 
+Variable numberOfGroundStations;
+numberOfGroundStations = 3;
+ 
+// ----------------------------------------------------------------------------
+// LINK BUDGET PARAMETERS
+// ----------------------------------------------------------------------------
+ 
+Variable lbFrequencyGHz        = 8.42;
+Variable lbTxPowerW            = 70.0;
+Variable lbTxAntennaDiamM      = 1.10;
+Variable lbTxEfficiency        = 0.468;
+Variable lbRxAntennaDiamM      = 35.0;
+Variable lbRxEfficiency        = 0.55;
+Variable lbSystemNoiseTempK    = 80.0;
+Variable lbDataRateHz          = 20000.0;
+Variable lbBandwidthHz         = 1.0e6;
+Variable lbTxLineLossdB        = 1.0;
+Variable lbPointingLossdB      = 0.01;
+Variable lbPolarizationLossdB  = 0.2;
+Variable lbAtmosphericLossdB   = 0.5;
+Variable lbImplementationLossdB = 2.0;
+Variable lbRequiredEbNodB      = 0.59;
+Variable lbBoltzmannDB         = -228.6;
+Variable lbPi                  = 3.141592653589793;
+ 
+// Precomputed link budget values
+Variable lbWavelengthM;
+Variable lbTxPowerdBW;
+Variable lbTxGaindBi;
+Variable lbRxGaindBi;
+Variable lbEIRPdBW;
+Variable lbNoDensitydBWHZ;
+Variable lbNoisePowerdBW;
+ 
+// Per-step calculation variables
+Variable lbRangeKm;
+Variable lbFreeSpaceLossdB;
+Variable lbTotalLossdB;
+Variable lbEbNodB;
+ 
+Variable recPr;
+Variable recCtoN;
+Variable linkMargin;
+ 
+// Best-station selection variables
+Variable bestLinkMargin;
+Variable bestStationIndex;
+Variable bestReceivedPower;
+Variable bestCtoN;
+Variable bestRangeKm;
+Variable pointIsReasonable;
+
+// Geometry-driven downlink (added — replaces hardcoded day windows)
+Variable earthRangeKm;
+Variable earthRangeAU;
+Variable downlinkAvailable = 0;
+Variable downlinkMarginThresholdDB = 6.0;   // dB — CDR SSR-COMM-03 margin floor
+
+// Adaptive downlink data rate (CDR Table 12.5.13): rate chosen each step to hold
+// exactly the 6 dB margin floor, capped at the 89 kbps CDR peak.
+Variable lbMaxDataRateHz    = 89000.0;      // Hz — CDR peak downlink rate
+Variable lbMinUsefulRateHz  = 1000.0;       // Hz — below this, no HGA downlink counted
+Variable lbAchievableRateHz = 0.0;          // Hz — computed each step
+Variable AU_KM = 149597870.7;               // km per astronomical unit
+
+// Loop and counter variables
+Variable gsToUse          = 0;
+Variable inView           = 0;
+Variable elapsedDays      = 0;
+Variable daysSinceStart   = 0;
+Variable lbValidPointCount = 0;
+Variable lbViewCounter    = 0;
+Variable isInDownlinkWindow = 0;
+Variable isInInspectionWindow = 0;
+Variable modeReportCounter = 0;
+
+TimeSpan initialEpoch;
+ 
+// ----------------------------------------------------------------------------
+// VECTORS AND VISIBILITY
+// ----------------------------------------------------------------------------
+ 
+Vector angVector;
+Vector commVector;
+Vector velVector;
+ 
+VisibilitySegment visSeg;
+ 
+// ----------------------------------------------------------------------------
+// WINDOW OVERLAYS
+// ----------------------------------------------------------------------------
+ 
+WindowOverlay woWindowFrame;
+WindowOverlay epochWo;
+WindowOverlay modeWo;
+ 
+// ----------------------------------------------------------------------------
+// PLOT WINDOWS
+// ----------------------------------------------------------------------------
+ 
+PlotWindow powerPlot;
+PlotWindow signalToNoisePlot;
+PlotWindow rfLinkPlot;
+PlotWindow dataRatePlot;
+ 
+// ----------------------------------------------------------------------------
+// VIEW WINDOWS
+// ----------------------------------------------------------------------------
+ 
+ViewWindow antennaGainView({RFTargetAntenna, antennaModelGo});
+ViewWindow vehicleView({ODIN, commVector, velVector, transmitterGo});
+ViewWindow orbitView({ODIN, SolarOrbiter, commVector});
+
+// ----------------------------------------------------------------------------
+// COLOR ALIASES
+// ----------------------------------------------------------------------------
+ 
+Alias gsColor_1 = ColorTools.SteelBlue;
+Alias gsColor_2 = ColorTools.OrangeRed;
+Alias gsColor_3 = ColorTools.Lime;
+
+Alias soColor   = ColorTools.Gold;
+ 
+// ----------------------------------------------------------------------------
+// ANTENNA GAIN VIEW ALIASES
+// ----------------------------------------------------------------------------
+
+Alias tdv       = antennaGainView.CurrentViewpoint.ThreeDView;
+Alias currentVp = antennaGainView.CurrentViewpoint;
+// ============================================================================
+// FREEFORM 3 — Define Procedures and Configure Objects
+// ============================================================================
+ 
+// ----------------------------------------------------------------------------
+// Common spacecraft configuration
+// ----------------------------------------------------------------------------
+ 
+Define Procedure CommonConfigurations(Spacecraft sc);
+ 
+    sc.BodyScale = 500;
+    sc.Propagator.StepSize = simulationStepSize;
+ 
+    Alias sens = sc.Sensors[0];
+    sens.ConeHalfAngle    = 2;
+    sens.ProjectionHeight = 5;
+    sens.Active           = 0;
+ 
+EndProcedure;
+ 
+// ----------------------------------------------------------------------------
+// Configure ODIN as the inspection spacecraft
+// ----------------------------------------------------------------------------
+ 
+Define Procedure ConfigureSource(Spacecraft source, CoordinateSystem orientation);
+ 
+    source.AddSensor("source_sensor");
+ 
+    Alias sens = source.Sensors[0];
+    sens.Color               = ColorTools.Red;
+    sens.BoresightUnitVector = {-1, 0, 0};
+ 
+    source.AttitudeRefFrame  = "MJ2000";
+ 
+    Call CommonConfigurations(source);
+ 
+    source.BodyScale   = 500;
+    source.DisplayName = "ODIN";
+ 
+EndProcedure;
+ 
+// ----------------------------------------------------------------------------
+// Configure RFLink1 for HGA downlink (MODE 2)
+// Transmitter: ODIN 1.1 m HGA, 55 W
+// Receiver:    ESA 35 m ground station, 80 K
+// ----------------------------------------------------------------------------
+ 
+// CORRECT:
+Define Procedure ConfigureInspectionDownlink(RFLink link, Spacecraft source, GroundStation receiver, String antennaPatternFile);
+ // General RFLink properties
+    link.Frequency        = 8420;       // MHz — X-band downlink (CDR Table 12.5.13)
+    link.Bandwidth        = 36;         // MHz
+    link.AtmosphericLoss  = 0.5;        // dB — CDR
+    link.PolarizationLoss = 0.2;        // dB — CDR (pol + GS line)
+    link.ModulationType   = "QPSK";     // FIX: was BPSK — architecture specifies QPSK + LDPC
+    link.BitRate          = 20000;      // bps — 20 kbps baseline
+    link.LinkPowerMargin  = 6.0;        // dB — CDR SSR-COMM-03 margin floor
+ 
+    // Transmitter: ODIN HGA
+    link.Transmitter.SetReferenceObject(source);
+    link.Transmitter.AntennaDiameter   = 1.1;     // m
+    link.Transmitter.AntennaEfficiency = 0.468;   // CDR — reproduces 36.42 dBi HGA gain
+    link.Transmitter.Power             = 70;      // W — TWTA TH4704C (CDR)
+    link.Transmitter.NoiseTemperature  = 1500;    // K
+    link.Transmitter.LineLoss          = 1.0;     // dB — CDR
+    link.Transmitter.PointingLoss      = 0.01;    // dB — steered HGA (CDR)
+    link.Transmitter.LoadAntennaGainFile(antennaPatternFile);
+ 
+    // Receiver: ESA 35 m deep-space ground station
+    link.Receiver.SetReferenceObject(receiver);
+    link.Receiver.AntennaDiameter   = 35.0;       // m  
+    link.Receiver.AntennaEfficiency = 0.55;
+    link.Receiver.Power             = 1;          // W  
+    link.Receiver.NoiseTemperature  = 80;         // K  
+    link.Receiver.LineLoss          = 2.0;        // dB
+    link.Receiver.PointingLoss      = 0.5;        // dB
+EndProcedure;
+
+// ----------------------------------------------------------------------------
+// Configure plot window appearance
+// ----------------------------------------------------------------------------
+ 
+Define Procedure ConfigurePlotWindow(PlotWindow pw);
+ 
+    pw.PlotSubTitle.Visible  = 0;
+    pw.HighQualityRendering  = 1;
+    pw.Legend.Visible        = 0;
+    pw.BackgroundColor       = ColorTools.Black;
+    pw.InterlacedDirection   = 1;
+    pw.PlotAreaColor         = ColorTools.RGB(0,0,0);
+    pw.InterlacedColor       = ColorTools.DarkGray;
+    pw.PlotTitle.Color       = ColorTools.White;
+ 
+    pw.XAxis.Title.Visible   = 1;
+    pw.XAxis.Title.Font.Bold = 1;
+    pw.YAxis.Title.Visible   = 1;
+    pw.YAxis.Title.Font.Bold = 1;
+ 
+    pw.XAxis.LabelsColor     = ColorTools.White;
+    pw.YAxis.LabelsColor     = ColorTools.White;
+    pw.XAxis.Title.Color     = ColorTools.White;
+    pw.YAxis.Title.Color     = ColorTools.White;
+    pw.XAxis.GridColor       = ColorTools.White;
+    pw.YAxis.GridLineWidth   = 2;
+ 
+EndProcedure;
+ 
+// ----------------------------------------------------------------------------
+// Configure plot series appearance
+// ----------------------------------------------------------------------------
+ 
+Define Procedure ConfigurePlotSeries(List<PlotScatterSeries> pssList);
+ 
+    Variable i;
+ 
+    For i = 0 to pssList.Count - 1;
+        pssList[i].LineVisible    = 1;
+        pssList[i].LineWidth      = 1;
+        pssList[i].MarkersVisible = 0;
+        pssList[i].MarkersSize    = 4;
+    End;
+ 
+EndProcedure;
+ 
+// ----------------------------------------------------------------------------
+// Vehicle view configuration
+// ----------------------------------------------------------------------------
+ 
+Define Procedure ConfigureVehicleViewCommon(ViewWindow vehicleView, Spacecraft source);
+ 
+    vehicleView.WindowTitle = "Vehicle View";
+ 
+    Alias tdvVehicle = vehicleView.Viewpoints[0].ThreeDView;
+    tdvVehicle.Source         = source.ObjectId;
+    tdvVehicle.Target         = source.ObjectId;
+    tdvVehicle.ReferenceFrame = "inertial";
+ 
+EndProcedure;
+ 
+// ----------------------------------------------------------------------------
+// Orbit view configuration
+// ----------------------------------------------------------------------------
+ 
+Define Procedure ConfigureOrbitViewCommon(
+    ViewWindow orbitView,
+    Spacecraft source,
+    GroundStation gs0,
+    GroundStation gs1,
+    GroundStation gs2);
+ 
+    orbitView.WindowTitle    = "Orbit View";
+    orbitView.ShowStatusText = 0;
+ 
+    orbitView.AddObject(gs0);
+    orbitView.AddObject(gs1);
+    orbitView.AddObject(gs2);
+ 
+    orbitView.SetShowName(source.ObjectId, 1);
+ 
+EndProcedure;
+ 
+// ----------------------------------------------------------------------------
+// Vehicle view for inspection satellite
+// ----------------------------------------------------------------------------
+ 
+Define Procedure ConfigureVehicleViewInspection(
+    ViewWindow vehicleView,
+    Spacecraft source,
+    List<GroundStation> gsList);
+ 
+    Call ConfigureVehicleViewCommon(vehicleView, source);
+ 
+    Alias tdvVI = vehicleView.Viewpoints[0].ThreeDView;
+    tdvVI.Declination    = -20;
+    tdvVI.RightAscension = 7;
+    tdvVI.Radius         = 25;
+ 
+    vehicleView.SetHistoryMode(source.ObjectId, 1);
+ 
+EndProcedure;
+ 
+// ----------------------------------------------------------------------------
+// Generic spacecraft positioning (kept for compatibility)
+// ----------------------------------------------------------------------------
+ 
+Define Procedure PositionSpacecraft(
+    Spacecraft target,
+    TimeSpan time,
+    Array inputs,
+    Variable stepMode);
+ 
+    If (stepMode == STEP_MODE_STEP);
+        Step target;
+    ElseIf (stepMode == STEP_MODE_STEP_TO);
+        If (inputs.Dimension != 1);
+            Report "Input array must have a dimension of 1.";
+            Stop;
+        End;
+        Step target to (target.Epoch == time);
+    ElseIf (stepMode == STEP_MODE_SET_STATE);
+        If (inputs.Dimension != 6);
+            Report "Input array must have a dimension of 6.";
+            Stop;
+        End;
+        target.Epoch    = time;
+        target.Position = inputs[0:2];
+        target.Velocity = inputs[3:5];
+    Else;
+        Report "Unrecognized step mode.";
+        Stop;
+    End;
+ 
+EndProcedure;
+ 
+// ----------------------------------------------------------------------------
+// Solar-Orbiter-like heliocentric orbit for ODIN
+// ----------------------------------------------------------------------------
+ 
+Define Procedure SetInspectionSatelliteOrbit(Spacecraft sc);
+ 
+    sc.CentralBody = "Sun";
+    sc.SetPropagatorType(TypeOf(TwoBody));
+    sc.Propagator.StepSize = TIMESPAN(1 hours);
+ 
+    sc.Epoch = "Oct 01 2026 00:00:00.000000000".ParseCalendarDate();
+ 
+    sc.A    = 8.931869393757236E+07;
+    sc.E    = 5.073072340103084E-01;
+    sc.I    = 1.261757932883799E+01;
+    sc.RAAN = 3.223469465453840E+02;
+    sc.W    = 3.063934436703851E+02;
+    sc.TA   = 1.416090814160359E+02;
+ 
+EndProcedure;
+
+// ----------------------------------------------------------------------------
+// Solar-Orbiter orbit
+// ----------------------------------------------------------------------------
+ 
+Define Procedure SetSolarOrbiterOrbit(Spacecraft sc);
+ 
+    sc.CentralBody = "Sun";
+    sc.SetPropagatorType(TypeOf(TwoBody));
+    sc.Propagator.StepSize = TIMESPAN(1 hours);
+ 
+    sc.Epoch = "Oct 01 2026 00:00:00.000000000".ParseCalendarDate();
+ 
+    // Solar Orbiter co-orbits with ODIN (CDR: ODIN trails SolO ~20 km along-track).
+    // Elements = ODIN's (CDR Table 6.1); tiny +TA lead puts SolO ~20 km ahead.
+    sc.A    = 8.931869393757236E+07;
+    sc.E    = 5.073072340103084E-01;
+    sc.I    = 1.261757932883799E+01;
+    sc.RAAN = 3.223469465453840E+02;
+    sc.W    = 3.063934436703851E+02;
+    sc.TA   = 1.416090814160359E+02 + 1.04E-05;   // +~20 km along-track lead
+ 
+EndProcedure;
+// ============================================================================
+// FREEFORM 4 — Create Visibility Segment
+// ============================================================================
+ 
+gsTargets[0] = Cebreros;
+gsTargets[1] = Malargue;
+gsTargets[2] = New_Norcia;
+ 
+visSeg.AddOccultingBody(Earth);
+visSeg.AddOccultingBody(Sun);
+ 
+visSeg.CelestialObjectOccultationModel = 1;
+ 
+visSeg.SetTarget(ODIN);
+visSeg.SetObserver(Malargue);
+// ============================================================================
+// FREEFORM 5 — Load and View Antenna Gain
+// ============================================================================
+ 
+RFTargetAntenna.BodyScale = 50;
+ 
+antennaModelGo.SetReferenceObject(RFTargetAntenna.ObjectId);
+ 
+currentVp.ViewpointName = 'Antenna Model View';
+tdv.Source = RFTargetAntenna.ObjectId;
+tdv.Target = RFTargetAntenna.ObjectId;
+tdv.Radius = 5;
+ 
+OutputLayout.SetWindowFrameVisibility({antennaGainView.ID}, 0);
+OutputLayout.ApplyUpdates();
+antennaGainView.ShowStatusText = 0;
+ 
+RFLink1.Receiver.SetReferenceObject(RFTargetAntenna);
+RFLink1.Receiver.LoadAntennaGainFile(AntennaPatternFilename);
+RFLink1.Receiver.BuildAntennaGainGraphicsOverlay(antennaModelGo, 1, 1);
+Update antennaGainView;
+ 
+ 
+Variable animI = 0;
+ 
+If (animateGainView);
+    While (animI <= 2000);
+        tdv.RightAscension = (tdv.RightAscension + 0.1) % 360;
+        Update antennaGainView;
+        animI++;
+    End;
+End;
+ 
+Pause 2;
+antennaGainView.CloseWindow();
+ 
+Report "Antenna gain pattern loaded and visualized." to Console;
+Report "" to Console;
+
+// ============================================================================
+// FREEFORM 6 — Plot and ViewWindow Definitions
+// ============================================================================
+ 
+vehicleView.SetTailLength(ODIN.ObjectId, 0);
+ 
+// ----------------------------------------------------------------------------
+// Plot series labels
+// ----------------------------------------------------------------------------
+ 
+powerToTargetData[0].Label = "Cebreros";
+powerToTargetData[1].Label = "Malargue";
+powerToTargetData[2].Label = "New Norcia";
+ 
+signalToNoiseData[0].Label = "Cebreros";
+signalToNoiseData[1].Label = "Malargue";
+signalToNoiseData[2].Label = "New Norcia";
+ 
+RFLinkMargin[0].Label = "Cebreros Link Margin";
+RFLinkMargin[1].Label = "Malargue Link Margin";
+RFLinkMargin[2].Label = "New Norcia Link Margin";
+
+dataRateData[0].Label = "Cebreros";
+dataRateData[1].Label = "Malargue";
+dataRateData[2].Label = "New Norcia";
+
+Call ConfigurePlotSeries(powerToTargetData);
+Call ConfigurePlotSeries(signalToNoiseData);
+Call ConfigurePlotSeries(RFLinkMargin);
+Call ConfigurePlotSeries(dataRateData);
+ 
+// ----------------------------------------------------------------------------
+// Plot series colors and widths
+// ----------------------------------------------------------------------------
+ 
+powerToTargetData[0].LineColor = gsColor_1;
+powerToTargetData[1].LineColor = gsColor_2;
+powerToTargetData[2].LineColor = gsColor_3;
+ 
+signalToNoiseData[0].LineColor = gsColor_1;
+signalToNoiseData[1].LineColor = gsColor_2;
+signalToNoiseData[2].LineColor = gsColor_3;
+ 
+RFLinkMargin[0].LineColor = gsColor_1;
+RFLinkMargin[1].LineColor = gsColor_2;
+RFLinkMargin[2].LineColor = gsColor_3;
+
+dataRateData[0].LineColor = gsColor_1;
+dataRateData[1].LineColor = gsColor_2;
+dataRateData[2].LineColor = gsColor_3;
+ 
+// ----------------------------------------------------------------------------
+// Configure Downlink Power plot
+// ----------------------------------------------------------------------------
+ 
+Call ConfigurePlotWindow(powerPlot);
+ 
+powerPlot.Legend.Visible         = 1;
+powerPlot.Legend.BackgroundColor = ColorTools.Black;
+powerPlot.Legend.TextColor       = ColorTools.WhiteSmoke;
+powerPlot.WindowTitle            = "Downlink Power";
+powerPlot.PlotTitle.Text         = "HGA Downlink Received Power (MODE 2 only)";
+powerPlot.YAxis.Title.Text       = "Received Power [dBW]";
+powerPlot.XAxis.Title.Text       = "Mission Elapsed Time [days]";
+powerPlot.YAxis.Scaling          = 0;
+ 
+powerPlot.AddSeries(powerToTargetData[0]);
+powerPlot.AddSeries(powerToTargetData[1]);
+powerPlot.AddSeries(powerToTargetData[2]);
+ 
+// ----------------------------------------------------------------------------
+// Configure Carrier-to-Noise plot
+// ----------------------------------------------------------------------------
+ 
+Call ConfigurePlotWindow(signalToNoisePlot);
+ 
+signalToNoisePlot.Legend.Visible         = 1;
+signalToNoisePlot.Legend.BackgroundColor = ColorTools.Black;
+signalToNoisePlot.Legend.TextColor       = ColorTools.WhiteSmoke;
+signalToNoisePlot.WindowTitle            = "Downlink C/N";
+signalToNoisePlot.PlotTitle.Text         = "HGA Downlink Carrier-to-Noise";
+signalToNoisePlot.YAxis.Title.Text       = "Carrier-to-Noise [dB]";
+signalToNoisePlot.XAxis.Title.Text       = "Mission Elapsed Time [days]";
+signalToNoisePlot.YAxis.Scaling          = 0;
+ 
+// FIX: AddSeries() calls were missing.
+signalToNoisePlot.AddSeries(signalToNoiseData[0]);
+signalToNoisePlot.AddSeries(signalToNoiseData[1]);
+signalToNoisePlot.AddSeries(signalToNoiseData[2]);
+ 
+// ----------------------------------------------------------------------------
+// Configure RF Link Margin plot
+// ----------------------------------------------------------------------------
+ 
+Call ConfigurePlotWindow(rfLinkPlot);
+ 
+rfLinkPlot.Legend.Visible         = 1;
+rfLinkPlot.Legend.BackgroundColor = ColorTools.Black;
+rfLinkPlot.Legend.TextColor       = ColorTools.WhiteSmoke;
+rfLinkPlot.Legend.Font.Size       = 7.5;
+rfLinkPlot.WindowTitle            = "RF Link Margin";
+rfLinkPlot.PlotTitle.Text         = "RF Link Margin — ODIN Downlink (MODE 2 Only)";
+rfLinkPlot.YAxis.Title.Text       = "Link Margin [dB]";
+rfLinkPlot.XAxis.Title.Text       = "Mission Elapsed Time [days]";
+rfLinkPlot.YAxis.Scaling          = 0;
+ 
+// FIX: AddSeries() calls were missing.
+rfLinkPlot.AddSeries(RFLinkMargin[0]);
+rfLinkPlot.AddSeries(RFLinkMargin[1]);
+rfLinkPlot.AddSeries(RFLinkMargin[2]);
+
+// ----------------------------------------------------------------------------
+// Configure Adaptive Data Rate plot (CDR deliverable: rate vs range/time)
+// ----------------------------------------------------------------------------
+
+Call ConfigurePlotWindow(dataRatePlot);
+
+dataRatePlot.Legend.Visible         = 1;
+dataRatePlot.Legend.BackgroundColor = ColorTools.Black;
+dataRatePlot.Legend.TextColor       = ColorTools.WhiteSmoke;
+dataRatePlot.WindowTitle            = "Downlink Data Rate";
+dataRatePlot.PlotTitle.Text         = "Adaptive Downlink Data Rate (holds 6 dB floor, 89 kbps cap)";
+dataRatePlot.YAxis.Title.Text       = "Data Rate [kbps]";
+dataRatePlot.XAxis.Title.Text       = "Mission Elapsed Time [days]";
+dataRatePlot.YAxis.Scaling          = 0;
+
+dataRatePlot.AddSeries(dataRateData[0]);
+dataRatePlot.AddSeries(dataRateData[1]);
+dataRatePlot.AddSeries(dataRateData[2]);
+ 
+// ----------------------------------------------------------------------------
+// Epoch Window Overlay
+// ----------------------------------------------------------------------------
+ 
+epochWo.RemoveAllShapes();
+ 
+epochWo.AddShape();
+epochWo.Shapes[0].SetPosition(0, 0, 0.80);
+epochWo.Shapes[0].TextOptions.TextColor = ColorTools.White;
+epochWo.Shapes[0].TextOptions.Font.Bold = 1;
+epochWo.Shapes[0].Visible = 1;
+ 
+epochWo.AddShape();
+epochWo.Shapes[1].SetPosition(0, 0.1, 0.86);
+epochWo.Shapes[1].TextOptions.TextColor = ColorTools.White;
+epochWo.Shapes[1].TextOptions.Font.Bold = 1;
+epochWo.Shapes[1].Visible = 1;
+ 
+// Mode overlay — shows current mode in orbit view
+modeWo.RemoveAllShapes();
+modeWo.AddShape();
+modeWo.Shapes[0].SetPosition(0, 0, 0.93);
+modeWo.Shapes[0].TextOptions.TextColor = ColorTools.Lime;
+modeWo.Shapes[0].TextOptions.Font.Bold = 1;
+modeWo.Shapes[0].Visible = 1;
+ 
+orbitView.AddObject(epochWo);
+orbitView.AddObject(modeWo);
+ 
+// ----------------------------------------------------------------------------
+// Window Frame Overlay
+// ----------------------------------------------------------------------------
+ 
+woWindowFrame.RemoveAllShapes();
+woWindowFrame.AddShape();
+woWindowFrame.Shapes[0].Type = "Rectangle";
+woWindowFrame.Shapes[0].SetSize(0, 1, 1);
+woWindowFrame.Shapes[0].RectangleOptions.FillOpacity = 0;
+woWindowFrame.Shapes[0].RectangleOptions.BorderColor = ColorTools.White;
+woWindowFrame.Shapes[0].RectangleOptions.SetCornerRadius(0, 0);
+ 
+vehicleView.AddObject(woWindowFrame);
+orbitView.AddObject(woWindowFrame);
+ 
+// ----------------------------------------------------------------------------
+// Ground station colors
+// ----------------------------------------------------------------------------
+ 
+Cebreros.DisplayName   = "Cebreros";
+Malargue.DisplayName   = "Malargue";
+New_Norcia.DisplayName = "New Norcia";
+SolarOrbiter.DisplayName = "Solar Orbiter";
+ 
+Cebreros.Color   = gsColor_1;
+Malargue.Color   = gsColor_2;
+New_Norcia.Color = gsColor_3;
+SolarOrbiter.Color = soColor;
+ 
+// ----------------------------------------------------------------------------
+// View window setup
+// ----------------------------------------------------------------------------
+ 
+Call ConfigureVehicleViewInspection(vehicleView, ODIN, gsTargets);
+Call ConfigureOrbitViewCommon(orbitView, ODIN, gsTargets[0], gsTargets[1], gsTargets[2]);
+ 
+// Orbit view perspective
+// FIX: Target set to Sun (not Earth) — ODIN is in a heliocentric orbit.
+orbitView.Viewpoints[0].ThreeDView.Source         = ODIN.ObjectId;
+orbitView.Viewpoints[0].ThreeDView.Target         = Sun.ObjectId;
+orbitView.Viewpoints[0].ThreeDView.ReferenceFrame = "inertial";
+orbitView.Viewpoints[0].ThreeDView.Declination    = 20;
+orbitView.Viewpoints[0].ThreeDView.RightAscension = 270;
+orbitView.Viewpoints[0].ThreeDView.Radius         = 300000;
+ 
+//orbitView.AddObject(SolarOrbiter);
+orbitView.SetShowName(SolarOrbiter.ObjectId, 1);
+orbitView.SetHistoryMode(ODIN.ObjectId, 1);
+orbitView.SetHistoryMode(SolarOrbiter.ObjectId, 1);
+orbitView.SetShowName(ODIN.ObjectId, 1);
+ 
+// ----------------------------------------------------------------------------
+// Window sizes and positions
+// ----------------------------------------------------------------------------
+ 
+OutputLayout.SetWindowSize(powerPlot.ID,         1, 0.5, 1, 0.25);
+OutputLayout.SetWindowSize(signalToNoisePlot.ID, 1, 0.5, 1, 0.25);
+OutputLayout.SetWindowSize(rfLinkPlot.ID,        1, 0.5, 1, 0.25);
+OutputLayout.SetWindowSize(dataRatePlot.ID,      1, 0.5, 1, 0.25);
+OutputLayout.SetWindowSize(vehicleView.ID,       1, 0.5, 1, 0.5);
+OutputLayout.SetWindowSize(orbitView.ID,         1, 0.5, 1, 0.5);
+ 
+OutputLayout.SetWindowPosition(powerPlot.ID,         1, 0.5, 1, 0);
+OutputLayout.SetWindowPosition(signalToNoisePlot.ID, 1, 0.5, 1, 0.25);
+OutputLayout.SetWindowPosition(rfLinkPlot.ID,        1, 0.5, 1, 0.5);
+OutputLayout.SetWindowPosition(dataRatePlot.ID,      1, 0.5, 1, 0.75);
+OutputLayout.SetWindowPosition(vehicleView.ID,       1, 0,   1, 0);
+OutputLayout.SetWindowPosition(orbitView.ID,         1, 0,   1, 0.5);
+ 
+OutputLayout.SetWindowFrameVisibility(
+    {powerPlot.ID, signalToNoisePlot.ID, vehicleView.ID, orbitView.ID, rfLinkPlot.ID, dataRatePlot.ID}, 0);
+ 
+vehicleView.ShowStatusText = 0;
+orbitView.ShowStatusText   = 0;
+ 
+OutputLayout.ApplyUpdates();
+//Block
+
+   // ============================================================================
+   // FREEFORM 7 (inside Block) — Set Simulation Mode
+   // ============================================================================
+    
+   SimMode           = SIM_MODE_SC_TO_GS;
+   UseEphemerisForSource = 0;
+   calcDownLink      = 1;
+   
+   currentMode = MODE_LGA_TTC;
+   
+   Report "Simulation mode: spacecraft-to-ground-station." to Console;
+   Report "Initial operating mode: LGA TT&C (MODE 0)." to Console;
+   Report "" to Console;
+    
+   // ============================================================================
+   // FREEFORM 8 (inside Block) — Simulation Setup
+   // ============================================================================
+    
+   gsTargets[0] = Cebreros;
+   gsTargets[1] = Malargue;
+   gsTargets[2] = New_Norcia;
+    
+   Cebreros.DisplayName   = "Cebreros";
+   Malargue.DisplayName   = "Malargue";
+   New_Norcia.DisplayName = "New Norcia";
+   SolarOrbiter.DisplayName = "Solar Orbiter";
+    
+   Cebreros.Color   = gsColor_1;
+   Malargue.Color   = gsColor_2;
+   New_Norcia.Color = gsColor_3;
+   SolarOrbiter.Color = soColor;
+    
+   // Configure ODIN as inspection satellite source
+   Call ConfigureSource(ODIN, csSource);
+   ODIN.DisplayName = "ODIN";
+    
+   Call ConfigureInspectionDownlink(RFLink1, ODIN, Malargue, AntennaPatternFilename);
+   
+    
+   // RF link vector (orange)
+   commVector.Color       = ColorTools.Orange;
+   commVector.DisplayName = "RF Link Vector";
+   commVector.BuildVector(13, RFLink1);
+    
+   // Velocity vector
+   velVector.DrawMethod   = 1;
+   velVector.Color        = ColorTools.Yellow;
+   velVector.DisplayName  = "Velocity Vector";
+   velVector.BuildVector(7, ODIN);
+    
+   // Angular momentum vector
+   angVector.Color        = ColorTools.Cyan;
+   angVector.DisplayName  = "Angular Momentum";
+   angVector.BuildVector(5, ODIN);
+    
+   // Transmitter antenna graphic overlay
+   transmitterGo.SetReferenceObject(ODIN.Sensors[0].ObjectId);
+    
+   // Load antenna pattern on transmitter for visualization
+   RFLink1.Transmitter.LoadAntennaGainFile(AntennaPatternFilename);
+   RFLink1.Transmitter.BuildAntennaGainGraphicsOverlay(transmitterGo, 5, 1);
+    
+   // Initialize ODIN orbit
+   If (UseEphemerisForSource);
+       ODIN.SetPropagatorType(TypeOf(Ephemeris));
+       Alias ephInspection = (ODIN.Propagator AsType Ephemeris);
+       ephInspection.LoadEphemeris(VehicleEphemerisFilename);
+   Else;
+       Call SetInspectionSatelliteOrbit(ODIN);
+   End;
+   
+   // Solar Orbiter co-orbits with ODIN (CDR Table 6.1, TwoBody) — ~20 km trailing.
+   // Without this call SolO ran on its XML force model and drifted ~38 Mkm over 1500 d.
+   Call SetSolarOrbiterOrbit(SolarOrbiter);
+   
+   // Save initial epoch and initialize vectors
+   initialEpoch    = ODIN.Epoch;
+   velVector.Epoch = ODIN.Epoch;
+   angVector.Epoch = ODIN.Epoch;
+    
+   csSource.BuildCoordinateSystem(1, velVector, 2, angVector);
+    
+   // Velocity label overlay
+   velocityGo.SetReferenceObject(ODIN.ObjectId);
+   velocityGo.ShapeType = "Annotations";
+   velocityGo.ClearOverlayElements();
+   velocityGo.DefaultColor = ColorTools.Yellow;
+   velocityGo.AddOverlayElement(7.5, 0, 0, "Velocity Vector");
+   vehicleView.AddObject(velocityGo);
+    
+   // Vehicle view perspective
+   vehicleView.Viewpoints[0].ThreeDView.Source         = ODIN.ObjectId;
+   vehicleView.Viewpoints[0].ThreeDView.Target         = ODIN.ObjectId;
+   vehicleView.Viewpoints[0].ThreeDView.ReferenceFrame = "inertial";
+   vehicleView.Viewpoints[0].ThreeDView.Declination    = -20;
+   vehicleView.Viewpoints[0].ThreeDView.RightAscension = 7;
+   vehicleView.Viewpoints[0].ThreeDView.Radius         = 25;
+   vehicleView.SetHistoryMode(ODIN.ObjectId, 1);
+   vehicleView.SetShowName(ODIN.ObjectId, 1);
+    
+   // Orbit view perspective
+   // FIX: Target = Sun for heliocentric view. Radius increased to show full orbit.
+   orbitView.Viewpoints[0].ThreeDView.Source         = ODIN.ObjectId;
+   orbitView.Viewpoints[0].ThreeDView.Target         = Sun.ObjectId;
+   orbitView.Viewpoints[0].ThreeDView.ReferenceFrame = "inertial";
+   orbitView.Viewpoints[0].ThreeDView.Declination    = 20;
+   orbitView.Viewpoints[0].ThreeDView.RightAscension = 270;
+   orbitView.Viewpoints[0].ThreeDView.Radius         = 300000;
+   orbitView.SetHistoryMode(ODIN.ObjectId, 1);
+   orbitView.SetHistoryMode(SolarOrbiter.ObjectId, 1);
+   orbitView.SetShowName(ODIN.ObjectId, 1);
+   orbitView.SetShowName(SolarOrbiter.ObjectId, 1);
+    
+   Report "Simulation setup complete." to Console;
+   Report "ODIN and Solar Orbiter orbits initialized." to Console;
+   Report "" to Console;
+    
+   Update vehicleView;
+   Update orbitView;
+   OutputLayout.ApplyUpdates();
+    
+    
+//EndBlock
+
+// ============================================================================
+// FREEFORM 9 — Propagation (FreeForm 11 in Mission Sequence)
+// ============================================================================
+ 
+gsTargets[0] = Cebreros;
+gsTargets[1] = Malargue;
+gsTargets[2] = New_Norcia;
+ 
+// ----------------------------------------------------------------------------
+// Visibility segment target
+// ----------------------------------------------------------------------------
+ 
+visSeg.SetTarget(ODIN);
+visSeg.SetObserver(gsTargets[0]);
+ 
+// ----------------------------------------------------------------------------
+// Timing initialization
+// ----------------------------------------------------------------------------
+ 
+initialEpoch = ODIN.Epoch;
+ 
+ODIN.Propagator.StepSize = TIMESPAN(1 hours);
+SolarOrbiter.Propagator.StepSize = TIMESPAN(1 hours);
+ 
+elapsedDays        = 0;
+daysSinceStart     = 0;
+lbValidPointCount  = 0;
+lbViewCounter      = 0;
+onboardDataGB      = 0.0;
+currentMode        = MODE_LGA_TTC; 
+
+// ----------------------------------------------------------------------------
+// Precompute link budget constants
+// ----------------------------------------------------------------------------
+ 
+lbWavelengthM    = 0.299792458 / lbFrequencyGHz;
+lbTxPowerdBW     = 10 * log(lbTxPowerW);
+lbTxGaindBi      = 10 * log(lbTxEfficiency * (lbPi * lbTxAntennaDiamM / lbWavelengthM)^2);
+lbRxGaindBi      = 10 * log(lbRxEfficiency * (lbPi * lbRxAntennaDiamM / lbWavelengthM)^2);
+lbEIRPdBW        = lbTxPowerdBW + lbTxGaindBi - lbTxLineLossdB;
+lbNoDensitydBWHZ = lbBoltzmannDB + 10 * log(lbSystemNoiseTempK);
+lbNoisePowerdBW  = lbNoDensitydBWHZ + 10 * log(lbBandwidthHz);
+ 
+// Console sanity check
+Report "" to Console;
+Report "Link budget constants:" to Console;
+Report "  Tx Power [dBW]      : ", lbTxPowerdBW     to Console;
+Report "  Tx Gain [dBi]       : ", lbTxGaindBi      to Console;
+Report "  Rx Gain [dBi]       : ", lbRxGaindBi      to Console;
+Report "  EIRP [dBW]          : ", lbEIRPdBW        to Console;
+Report "  No density [dBW/Hz] : ", lbNoDensitydBWHZ to Console;
+Report "  Req. Eb/N0 [dB]     : ", lbRequiredEbNodB to Console;
+Report "" to Console;
+Report "Starting 1500-day multi-mode propagation..." to Console;
+Report "" to Console;
+ 
+// ============================================================================
+// MAIN PROPAGATION LOOP
+// ============================================================================
+ 
+While (ODIN.ElapsedTimeFromEpoch(initialEpoch) < TIMESPAN(1500 days));
+ 
+    Step ODIN;
+	Step SolarOrbiter to (SolarOrbiter.Epoch == ODIN.Epoch);
+ 
+    elapsedDays = ODIN.ElapsedTimeFromEpoch(initialEpoch).ToMinutes() / 1440.0;
+	
+	daysSinceStart = ODIN.ElapsedTimeFromEpoch(initialEpoch).ToDays();
+ 
+    // ------------------------------------------------------------------------
+    // Update epoch overlay
+    // ------------------------------------------------------------------------
+ 
+    epochWo.Shapes[0].TextOptions.Text = StringConcat(
+        "Epoch: ", ODIN.Epoch.ConvertToCalendarDate("Mmm D YYYY"));
+    epochWo.Shapes[1].TextOptions.Text = StringConcat(
+        ODIN.Epoch.ConvertToCalendarDate("hh:mm:ss"), " UTC");
+ 
+    // ------------------------------------------------------------------------
+    // Update vectors and attitude
+    // ------------------------------------------------------------------------
+ 
+    velVector.Epoch = ODIN.Epoch;
+    angVector.Epoch = ODIN.Epoch;
+    csSource.Epoch  = ODIN.Epoch;
+    ODIN.SetOrientation(csSource);
+ 
+    // ------------------------------------------------------------------------
+    // Downlink windows are no longer hardcoded by mission day. Availability is
+    // now decided from real geometry (ODIN-Earth range + Sun occultation) in the
+    // link-evaluation block below. The old day-based windows assumed heliocentric
+    // distance as a proxy for link difficulty, which is invalid for a deep-space
+    // orbit (Sun distance != Earth distance).
+    // ------------------------------------------------------------------------
+
+    isInDownlinkWindow = 0;
+	
+	// ------------------------------------------------------------------------
+    // Inspection windows (CDR): Insp 1 = Feb 8-22 2028 (days 495-509),
+    //                           Insp 2 = Nov 21-Dec 6 2028 (days 782-797).
+    // (Windows 3-4 disabled — CDR defines only two inspection campaigns.)
+    // ------------------------------------------------------------------------
+ 
+	isInInspectionWindow = 0;
+ 
+    If (daysSinceStart >= 495.0 and daysSinceStart <= 509.0);   
+    	isInInspectionWindow = 1; 
+    End;
+	
+    If (daysSinceStart >= 782.0 and daysSinceStart <= 797.0);  
+    	isInInspectionWindow = 1; 
+    End;
+	
+    If (0 == 1 /* disabled: CDR has only two inspection campaigns */ and daysSinceStart <= 802.0);  
+    	isInInspectionWindow = 1;
+    End;
+	
+    If (0 == 1 /* disabled: CDR has only two inspection campaigns */ and daysSinceStart <= 1104.0); 
+    	isInInspectionWindow = 1; 
+    End;	
+	
+	odinToSORange = ODIN.Range(SolarOrbiter);
+	earthRangeKm  = ODIN.Range(Earth);
+	earthRangeAU  = earthRangeKm / AU_KM;
+ 
+	// Mode pre-decision: safe LGA TT&C by default; INSPECTION when near Solar
+	// Orbiter during a scheduled encounter window. HGA downlink is decided AFTER
+	// the link budget is evaluated below (geometry-driven, not by calendar date).
+	currentMode = MODE_LGA_TTC;
+	If (isInInspectionWindow and odinToSORange < inspectionThresholdKm);
+		currentMode = MODE_INSPECTION;
+	End;
+	
+	// Throttled console mode report (every 240 steps = every 10 days)
+    modeReportCounter++;
+    If (modeReportCounter >= 240);
+        Report "Day ", elapsedDays, "  Mode: ", currentMode,
+               "  Earth [AU]: ", earthRangeAU,
+               "  SO Range [km]: ", odinToSORange,
+               "  SSM [GB]: ", onboardDataGB to Console;
+        modeReportCounter = 0;
+    End;
+	
+	// ------------------------------------------------------------------------
+    // Data volume model 
+	// Imaging only in MODE 1. Downlink drain only in MODE 2.
+    // ------------------------------------------------------------------------
+ 
+    If (currentMode == MODE_INSPECTION);
+        onboardDataGB = onboardDataGB + imagingRateGBperHour;
+        If (onboardDataGB > storageCapacityGB);
+            onboardDataGB = storageCapacityGB;
+        End;
+    End;
+	
+    // ------------------------------------------------------------------------
+    // Select best visible ground station (MODE 2 Only)_
+    // ------------------------------------------------------------------------
+ 
+	// Evaluate the downlink budget EVERY step so availability is geometry-driven.
+	// visSeg already occults on Earth's limb (target station on the far side) and
+	// on the Sun (solar conjunction), matching ODIN's steerable-HGA constraint.
+	If (1 == 1);
+
+	    bestLinkMargin   = -1.0e15;
+	    bestStationIndex = -1;
+	    bestReceivedPower = -1.0e15;
+	    bestCtoN         = -1.0e15;
+	    bestRangeKm      = -1;
+ 
+	    For gsToUse = 0 to 2;
+	 
+	        visSeg.SetObserver(gsTargets[gsToUse]);
+	        inView = visSeg.Visibility(ODIN.Epoch);
+	 
+	        If (inView);
+	 
+	            lbRangeKm = ODIN.Range(gsTargets[gsToUse]);
+	 
+	            If (lbRangeKm > 0);
+	 
+	                lbFreeSpaceLossdB = 92.45
+	                                  + 20 * log(lbRangeKm)
+	                                  + 20 * log(lbFrequencyGHz);
+	 
+	                lbTotalLossdB = lbFreeSpaceLossdB
+	                              + lbPointingLossdB
+	                              + lbPolarizationLossdB
+	                              + lbAtmosphericLossdB;
+	 
+	                // Received carrier power [dBW]
+	                recPr = lbEIRPdBW + lbRxGaindBi - lbTotalLossdB;
+	 
+	                // Carrier-to-noise ratio over bandwidth [dB]
+	                recCtoN = recPr - lbNoisePowerdBW;
+	 
+	                // Eb/N0 [dB]
+	                lbEbNodB = recPr - lbNoDensitydBWHZ - 10 * log(lbDataRateHz);
+	 
+	                // RF link margin [dB]
+	                linkMargin = lbEbNodB - lbRequiredEbNodB - lbImplementationLossdB;
+	 
+	                If (linkMargin > bestLinkMargin);
+	                    bestLinkMargin    = linkMargin;
+	                    bestStationIndex  = gsToUse;
+	                    bestReceivedPower = recPr;
+	                    bestCtoN          = recCtoN;
+	                    bestRangeKm       = lbRangeKm;
+	                End;
+	 
+	            End;
+	 
+	        End;
+	 
+	    End;
+		
+    // ------------------------------------------------------------------------
+    // Plot — only during downlink windows when a station is visible
+    // ------------------------------------------------------------------------
+ 
+    // Promote to HGA downlink when the link closes with margin AND data is queued.
+    // (Link "closes" = a station is visible past Earth/Sun occultation and the
+    //  computed margin clears the operational threshold.)
+    // Adaptive data rate: highest rate that still holds the 6 dB margin floor at
+    // the best station, capped at the CDR peak (89 kbps). This is the CDR model —
+    // rate is chosen per geometry to hold margin, not fixed.
+    lbAchievableRateHz = 0.0;
+    If (bestStationIndex >= 0);
+        lbAchievableRateHz = 10^((bestReceivedPower - lbNoDensitydBWHZ
+                                  - lbRequiredEbNodB - lbImplementationLossdB
+                                  - downlinkMarginThresholdDB) / 10);
+        If (lbAchievableRateHz > lbMaxDataRateHz);
+            lbAchievableRateHz = lbMaxDataRateHz;
+        End;
+    End;
+
+    downlinkAvailable = 0;
+    If (bestStationIndex >= 0 and lbAchievableRateHz >= lbMinUsefulRateHz);
+        downlinkAvailable = 1;
+    End;
+    If (currentMode == MODE_LGA_TTC and downlinkAvailable and onboardDataGB > 0);
+        currentMode = MODE_HGA_DOWNLINK;
+    End;
+
+    If (bestStationIndex >= 0);
+
+        pointIsReasonable = 1;
+ 
+        If (bestReceivedPower < -300);  
+        	pointIsReasonable = 0;  
+        End;
+    	
+        If (bestReceivedPower > 100);   
+        	pointIsReasonable = 0; 
+        End;
+    	
+        If (bestCtoN < -300);           
+        	pointIsReasonable = 0; 
+        End;
+    	
+        If (bestCtoN > 300);           
+        	pointIsReasonable = 0; 
+        End;
+    	
+        If (bestLinkMargin < -300); 
+        	pointIsReasonable = 0; 
+        End;
+    	
+        If (bestLinkMargin > 300);   
+        	pointIsReasonable = 0; 
+        End;
+ 
+        If (pointIsReasonable);
+ 
+            powerToTargetData[bestStationIndex].AddPoints(elapsedDays, bestReceivedPower);
+            signalToNoiseData[bestStationIndex].AddPoints(elapsedDays, bestCtoN);
+            RFLinkMargin[bestStationIndex].AddPoints(elapsedDays, bestLinkMargin);
+            dataRateData[bestStationIndex].AddPoints(elapsedDays, lbAchievableRateHz / 1000.0);
+            lbValidPointCount++;
+
+            // Drain onboard data buffer only while actively downlinking (MODE 2), at the
+            // adaptive rate: GB/hour = rate[bps] * 3600 s / 8e9 (GB = 1e9 bytes).
+            If (currentMode == MODE_HGA_DOWNLINK);
+                onboardDataGB = onboardDataGB - lbAchievableRateHz * 3600.0 / 8.0e9;
+                If (onboardDataGB < 0);
+                    onboardDataGB = 0;
+                End;
+            End;
+ 
+        End;
+ 
+    End;
+
+	End;
+ 
+    // ------------------------------------------------------------------------
+    // Animate views
+    // ------------------------------------------------------------------------
+ 
+    If (animateView);
+ 
+        vehicleView.CurrentViewpoint.ThreeDView.RightAscension =
+            (vehicleView.CurrentViewpoint.ThreeDView.RightAscension + 0.3) % 360;
+ 
+        orbitView.CurrentViewpoint.ThreeDView.RightAscension =
+            (orbitView.CurrentViewpoint.ThreeDView.RightAscension + 0.04) % 360;
+ 
+    End;
+ 
+    // ------------------------------------------------------------------------
+    // Update plots every 2 days (48 x 1-hour steps)
+    // ------------------------------------------------------------------------
+ 
+    lbViewCounter++;
+ 
+    If (lbViewCounter >= 48);
+ 
+        Update powerPlot;
+        Update signalToNoisePlot;
+        Update rfLinkPlot;
+        Update dataRatePlot;
+        Update vehicleView;
+        Update orbitView;
+        lbViewCounter = 0;
+ 
+    End;
+	
+	Update ViewWindow1;
+ 
+End;
+ 
+// ----------------------------------------------------------------------------
+// Final updates
+// ----------------------------------------------------------------------------
+ 
+Update powerPlot;
+Update signalToNoisePlot;
+Update rfLinkPlot;
+Update vehicleView;
+Update orbitView;
+ 
+// ----------------------------------------------------------------------------
+// Final console report
+// ----------------------------------------------------------------------------
+ 
+Report "" to Console;
+Report "ODIN 1500-day multi-mode propagation complete." to Console;
+Report "" to Console;
+Report "Valid HGA downlink samples : ", lbValidPointCount to Console;
+Report "Remaining onboard data [GB]: ", onboardDataGB     to Console;
+Report "" to Console;
+Report "Final step values:" to Console;
+Report "  Elapsed days        : ", elapsedDays       to Console;
+Report "  Operating mode      : ", currentMode        to Console;
+Report "  SO range [km]       : ", odinToSORange      to Console;
+Report "  Selected GS index   : ", bestStationIndex   to Console;
+Report "  Range to GS [km]    : ", bestRangeKm        to Console;
+Report "  Received power [dBW]: ", bestReceivedPower  to Console;
+Report "  C/N [dB]            : ", bestCtoN           to Console;
+Report "  Link margin [dB]    : ", bestLinkMargin     to Console;
+Report "  Adaptive rate [kbps]: ", lbAchievableRateHz / 1000.0 to Console;
+Report "" to Console;
+Report "Downlink availability is geometry-driven: a station is visible past" to Console;
+Report "Earth-limb and Sun occultation AND the computed link margin clears the" to Console;
+Report "6 dB CDR floor (SSR-COMM-03). It is no longer scheduled by mission day." to Console;
+Report "Free-space path loss is set by the ODIN-Earth range (not the Sun range)." to Console;
+Report "" to Console;
+Report "NOTE: Solar Orbiter is modeled as a TwoBody co-orbit with ODIN" to Console;
+Report "(CDR Table 6.1 elements, ~20 km trailing). Load a real SPICE/.e" to Console;
+Report "ephemeris for higher-fidelity inspection proximity results." to Console;
