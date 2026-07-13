@@ -1081,6 +1081,7 @@
         <span class="tool-badge">MATLAB</span>
         <span class="tool-badge">Excel</span>
         <span class="tool-badge">LaTeX</span>
+        <span class="tool-badge">FreeFlyer</span>
       </div>
 
       <div class="pdf-preview-compact report-preview">
@@ -1097,6 +1098,47 @@
       <div class="project-docs">
         <a href="assets/ODIN%20COMMUNICATIONS%20SUBSYSTEM.pdf" class="doc-link" target="_blank" rel="noopener">Open Full Subsystem Report</a>
         <a href="https://github.com/kaihori613/kaihori613.github.io/blob/main/assets/ODIN_CDR_Comm_Analysis_.m" class="doc-link" target="_blank" rel="noopener">Comm Analysis Source (.m)</a>
+      </div>
+
+      <div class="qfh-story-intro" style="margin-top:1.1rem;">
+        <div class="qfh-story-kicker">FreeFlyer RF Link Analysis · 1500-Day Multi-Mode Propagation</div>
+        <p>
+          The MATLAB link budget above closes the design case at fixed range/geometry snapshots. To check
+          that the link actually holds up over a real mission timeline, I rebuilt the analysis as a full
+          FreeFlyer mission plan: ODIN is numerically propagated for 1500 days (CDR Table&nbsp;6.1 elements,
+          ~20&nbsp;km trailing co-orbit with the target body) while FreeFlyer independently computes range,
+          free-space path loss, C/N, and link margin at every step against all three ESTRACK stations
+          (Cebreros, Malargüe, New&nbsp;Norcia). Downlink availability is geometry-driven — a station has to
+          be visible past Earth-limb/Sun occultation <em>and</em> the computed link margin has to clear the
+          6&nbsp;dB CDR floor (SSR-COMM-03) — so a contact is only scheduled on days the link would actually
+          close, not just when a station is in view. The adaptive downlink data-rate logic holds that 6&nbsp;dB
+          floor and caps out at the HGA's 89&nbsp;kbps design rate, matching the MATLAB result independently.
+        </p>
+      </div>
+
+      <div class="cad-viewer-wrap" style="margin-top:0.75rem;">
+        <a href="assets/odin_freeflyer_poster.jpg" target="_blank" rel="noopener">
+          <img src="assets/odin_freeflyer_poster.jpg" alt="FreeFlyer ODIN RF Link Analysis workspace — MissionView orbit geometry alongside downlink data rate, RF link margin, HGA C/N, and received power plots">
+        </a>
+        <div class="cad-viewer-caption">
+          FreeFlyer Workspace 1 · full dashboard layout — MissionView orbit/ground-track view plus the four
+          downlink telemetry plots · click to enlarge
+        </div>
+      </div>
+
+      <div class="cad-viewer-wrap" style="margin-top:0.75rem;">
+        <video controls preload="metadata" poster="assets/odin_freeflyer_poster.jpg" style="width:100%;display:block;background:#000;">
+          <source src="assets/ODIN-FreeFlyer-demo-web.mp4" type="video/mp4">
+          Your browser does not support embedded video.
+        </video>
+        <div class="cad-viewer-caption">
+          FreeFlyer MissionView orbit geometry and ground-track (top) alongside adaptive downlink data rate,
+          RF link margin, HGA carrier-to-noise, and received power over the 1500-day propagation
+        </div>
+      </div>
+
+      <div class="project-docs" style="margin-top:0.75rem;">
+        <a href="assets/ODIN.MissionPlan" class="doc-link" download>Download FreeFlyer Mission Plan (.MissionPlan)</a>
       </div>
     </div>
 
