@@ -1341,7 +1341,7 @@
           </div>
         </article>
 
-        <article class="story-card wide">
+        <article class="story-card">
           <a href="assets/image.jpg" target="_blank" rel="noopener">
             <img src="assets/image.jpg" alt="QFH antenna rooftop test near campus structures and possible RF interference sources" loading="lazy">
           </a>
@@ -1360,7 +1360,7 @@
           </div>
         </article>
 
-        <article class="story-card wide">
+        <article class="story-card">
           <a href="assets/Meteor_m2_4.jpg" target="_blank" rel="noopener">
             <img src="assets/Meteor_m2_4.jpg" alt="Decoded Meteor-M2 satellite image after a successful QFH pass" loading="lazy">
           </a>
@@ -1392,42 +1392,55 @@
         </p>
       </div>
 
-      <div class="lband-photo-grid">
-        <figure>
+      <div class="story-grid">
+        <article class="story-card">
           <a href="assets/IMG_8202.jpeg" target="_blank" rel="noopener">
-            <img
-              src="assets/IMG_8202.jpeg"
-              alt="Modified DirecTV satellite dish fitted with a handmade L-band cantenna feed"
-              loading="lazy">
+            <img src="assets/IMG_8202.jpeg" alt="Modified DirecTV satellite dish fitted with a handmade L-band cantenna feed" loading="lazy">
           </a>
-          <figcaption>
-            Repurposed DirecTV dish · handmade L-band cantenna · SDR receive chain · click to enlarge
-          </figcaption>
-        </figure>
+          <div class="story-copy">
+            <div class="story-step">11 · GEO receive chain assembly</div>
+            <h4>A repurposed DirecTV dish stepped in for the gain the QFH couldn't provide.</h4>
+            <p>
+              GEO downlinks need substantially more antenna gain than a passive QFH can deliver, so we
+              adapted a discarded DirecTV parabolic dish as the front end for L-band reception, feeding
+              the same SDR-based receive chain used for the LEO Meteor work.
+            </p>
+            <span class="story-outcome">Setup: repurposed dish + handmade L-band feed + SDR chain</span>
+          </div>
+        </article>
 
-        <figure>
+        <article class="story-card">
           <a href="assets/IMG_8201.jpeg" target="_blank" rel="noopener">
-            <img
-              src="assets/IMG_8201.jpeg"
-              alt="Close-up of the handmade cantenna and custom 3D-printed mounting clamp"
-              loading="lazy">
+            <img src="assets/IMG_8201.jpeg" alt="Close-up of the handmade cantenna and custom 3D-printed mounting clamp" loading="lazy">
           </a>
-          <figcaption>
-            Cantenna feed close-up · custom 3D-printed adjustable mount · coaxial probe connection
-          </figcaption>
-        </figure>
+          <div class="story-copy">
+            <div class="story-step">12 · Feed fabrication</div>
+            <h4>A handmade cantenna feed replaced the dish's stock LNB.</h4>
+            <p>
+              The dish's original receiver was swapped for a fabricated cylindrical cantenna tuned for
+              L-band. A custom 3D-printed clamp holds the feed near the dish's focal point while still
+              letting its position and pointing be adjusted between test passes.
+            </p>
+            <span class="story-outcome">Build: adjustable 3D-printed feed mount + coaxial probe</span>
+          </div>
+        </article>
 
-        <figure>
+        <article class="story-card">
           <a href="assets/abi_rgb_ABI_False_Color_map-2.png" target="_blank" rel="noopener">
-            <img
-              src="assets/abi_rgb_ABI_False_Color_map-2.png"
-              alt="GOES ABI false-color full-disk Earth image received through the L-band dish and cantenna feed"
-              loading="lazy">
+            <img src="assets/abi_rgb_ABI_False_Color_map-2.png" alt="GOES ABI false-color full-disk Earth image received through the L-band dish and cantenna feed" loading="lazy">
           </a>
-          <figcaption>
-            GOES ABI false-color full-disk capture · received via the L-band dish + cantenna chain · click to enlarge
-          </figcaption>
-        </figure>
+          <div class="story-copy">
+            <div class="story-step">13 · First GEO capture</div>
+            <h4>The chain returned a recognizable full-disk GOES image.</h4>
+            <p>
+              An early pass through the dish and cantenna feed produced a false-color ABI composite
+              showing weather over the Pacific and the North American coastline. Visible horizontal
+              banding points to sync or timing issues still being worked out in the L-band chain — the
+              same kind of dropout-as-diagnostic approach used earlier in the QFH debugging.
+            </p>
+            <span class="story-outcome">Result: first full-disk GEO image, sync tuning still in progress</span>
+          </div>
+        </article>
       </div>
     </div>
 
