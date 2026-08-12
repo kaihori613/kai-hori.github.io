@@ -383,6 +383,30 @@
   /* Featured full-width project (MOON ground station) */
   .project-card.span-2 { grid-column: 1 / -1; }
 
+  /* Divider between the MOON ground-station feature and the rest of the projects grid */
+  .project-divider {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.25rem 0 0.5rem;
+  }
+
+  .project-divider-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--amber);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .project-divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
 
   /* Embedded PDF previews: fill the card width while the project grid stays two columns */
   .pdf-preview-compact,
@@ -1598,6 +1622,10 @@
       </p>
     </div>
 
+    <div class="project-divider">
+      <span class="project-divider-label">Other Projects</span>
+      <div class="project-divider-line"></div>
+    </div>
 
         <!-- ODIN POSTERS -->
     <div class="project-card odin-pdf-card">
