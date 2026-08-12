@@ -979,7 +979,7 @@
   </div>
   <div class="hero-stats fade-up delay-4">
     <div>
-      <div class="stat-num">12</div>
+      <div class="stat-num">13</div>
       <div class="stat-label">Projects & Reports</div>
     </div>
     <div>
@@ -1964,6 +1964,52 @@ void ComputeForces(uint3 id : SV_DispatchThreadID)
 
   <div class="project-docs">
     <a href="assets/EME%20139%20Team%20Term%20Paper%20Final%20Report.pdf" class="doc-link" target="_blank" rel="noopener">Open Full Report</a>
+  </div>
+</div>
+
+    <!-- EME 165 NUMERICAL CONDUCTION PROJECT -->
+<div class="project-card">
+  <div class="project-tag">Heat Transfer · EME 165</div>
+  <div class="project-title">Post-Harvest Refrigeration — Transient Conduction of a Cantaloupe</div>
+  <p class="project-desc">
+    Numerical conduction project modeling a cantaloupe as a three-layer sphere (seed cavity, mesocarp,
+    rind) cooled by forced-air convection. Checked whether a lumped-capacitance approximation was valid,
+    solved a 1-D analytical transient-conduction estimate using mass-weighted average properties, then
+    built a finite-volume MATLAB solver over the full three-layer geometry to find the time and energy
+    required to cool the fruit-seed-cavity interface to 5°C. A bonus study swept the convective
+    coefficient from 50–180 W/m²-K to see how much forced-air intensity could shorten the cooling time.
+  </p>
+  <div class="project-tools">
+    <span class="tool-badge">MATLAB</span>
+    <span class="tool-badge">Transient Conduction</span>
+    <span class="tool-badge">Finite Volume</span>
+    <span class="tool-badge">Numerical Methods</span>
+  </div>
+
+  <div class="cad-viewer-wrap" style="margin-top:1.5rem;">
+    <object
+      data="assets/EME_165_Project_statement-2.pdf"
+      type="application/pdf"
+      width="100%"
+      height="520"
+      style="display:block;background:#111820;">
+      <iframe
+        src="assets/EME_165_Project_statement-2.pdf"
+        width="100%"
+        height="520"
+        style="border:0;background:#111820;">
+      </iframe>
+    </object>
+    <div class="cad-viewer-caption">
+      EME 165 project statement · embedded PDF preview
+    </div>
+  </div>
+
+  <div class="project-docs">
+    <a href="assets/EME_165_Project_statement-2.pdf" class="doc-link" target="_blank" rel="noopener">Open Project Statement</a>
+    <a href="assets/Project_2024-12-08_04_33_36.pdf" class="doc-link" target="_blank" rel="noopener">Open Full Report &amp; Derivation</a>
+    <a href="https://github.com/kaihori613/kaihori613.github.io/blob/main/assets/Kai_Hori_EME165_Project.m" class="doc-link" target="_blank" rel="noopener">Main Source (.m)</a>
+    <a href="https://github.com/kaihori613/kaihori613.github.io/blob/main/assets/Kai_Hori_EME_Project_Bonus_Question.m" class="doc-link" target="_blank" rel="noopener">Bonus Source (.m)</a>
   </div>
 </div>
 
