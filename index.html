@@ -1190,6 +1190,8 @@
         <span class="tool-badge">Onshape</span>
         <span class="tool-badge">RG6 Coax</span>
         <span class="tool-badge">L-Band Dish</span>
+        <span class="tool-badge">GOES HRIT</span>
+        <span class="tool-badge">Himawari AHI</span>
       </div>
       <div class="project-docs">
         <a href="https://docs.google.com/document/d/1ly69OA6XXiGWTOXHYI4hj4g3MsM5K8_wVmu6nx5stwM/view?usp=sharing" class="doc-link" target="_blank" rel="noopener noreferrer">MOON Full Project Log</a>
@@ -1442,6 +1444,154 @@
           </div>
         </article>
       </div>
+
+      <!-- GEO PHASE 3 — SECOND, LARGER MESH DISH — GOES HRIT + HIMAWARI AHI -->
+      <div class="qfh-story-intro">
+        <div class="qfh-story-kicker">Phase 3 · A Second, Larger Receive Chain — GOES HRIT &amp; Himawari AHI</div>
+        <p>
+          Rather than modify the Phase 2 dish, we stood up a second, independent L-band receive chain
+          around a larger mesh parabolic reflector. The bigger aperture opened up more of the GEO L-band
+          spectrum — including the GOES HRIT downlink at 1694.1 MHz and, as a milestone, Japan's
+          Himawari-9 AHI broadcast — while the original DirecTV/cantenna setup from Phase 2 kept running
+          in parallel as its own receiver.
+        </p>
+      </div>
+
+      <div class="story-grid">
+        <article class="story-card">
+          <a href="assets/IMG_8664.jpeg" target="_blank" rel="noopener">
+            <img src="assets/IMG_8664.jpeg" alt="Larger mesh parabolic dish with feed, assembled as a second independent L-band receive chain" loading="lazy">
+          </a>
+          <div class="story-copy">
+            <div class="story-step">14 · A second, independent GEO receiver</div>
+            <h4>We built a second L-band chain instead of modifying the Phase 2 dish.</h4>
+            <p>
+              A larger mesh parabolic reflector was fitted with its own feed and mount, running as an
+              independent receive chain alongside the DirecTV/cantenna setup from Phase 2. The bigger
+              aperture meant more usable gain margin for weaker or off-boresight GEO downlinks.
+            </p>
+            <span class="story-outcome">Setup: second mesh dish + feed, independent SDR chain</span>
+          </div>
+        </article>
+
+        <article class="story-card">
+          <a href="assets/IMG_8668.jpeg" target="_blank" rel="noopener">
+            <img src="assets/IMG_8668.jpeg" alt="Adjusting and centering the feed on the mesh dish's focal point" loading="lazy">
+          </a>
+          <div class="story-copy">
+            <div class="story-step">15 · Feed integration and pointing</div>
+            <h4>Centering the feed on the focal point took hands-on iteration.</h4>
+            <p>
+              As with the cantenna on the DirecTV dish, feed position directly drove signal quality. We
+              adjusted the feed's standoff distance and centering on the mesh reflector by eye and by
+              watching live SNR in SatDump, tightening the mount once the response peaked.
+            </p>
+            <span class="story-outcome">Fit: feed centered and locked at the measured focal point</span>
+          </div>
+        </article>
+
+        <article class="story-card">
+          <a href="assets/IMG_8671.jpeg" target="_blank" rel="noopener">
+            <img src="assets/IMG_8671.jpeg" alt="Reviewing feed geometry and mount stability with a mentor before permanent installation" loading="lazy">
+          </a>
+          <div class="story-copy">
+            <div class="story-step">16 · Design review</div>
+            <h4>A second pair of eyes helped catch geometry issues before the permanent mount.</h4>
+            <p>
+              Before committing to a rooftop install, we walked through the feed geometry and mount
+              stability with a mentor familiar with parabolic reflector antennas — checking focal offset,
+              mesh reflectivity at L-band, and wind-load concerns for an eventual permanent mount.
+            </p>
+            <span class="story-outcome">Check: feed geometry and mount plan reviewed before installation</span>
+          </div>
+        </article>
+
+        <article class="story-card">
+          <a href="assets/IMG_8432.jpeg" target="_blank" rel="noopener">
+            <img src="assets/IMG_8432.jpeg" alt="Loading the assembled dish into a truck bed for transport to the permanent install site" loading="lazy">
+          </a>
+          <div class="story-copy">
+            <div class="story-step">17 · Transport to the install site</div>
+            <h4>The dish moved from bench testing to its permanent location.</h4>
+            <p>
+              Once the feed and mount were validated on the ground, the assembly was loaded up and driven
+              to the rooftop install site — the same kind of field-to-permanent-site transition the QFH
+              antenna went through earlier in the project.
+            </p>
+            <span class="story-outcome">Move: bench-validated assembly relocated for permanent mounting</span>
+          </div>
+        </article>
+
+        <article class="story-card">
+          <a href="assets/IMG_8429.jpeg" target="_blank" rel="noopener">
+            <img src="assets/IMG_8429.jpeg" alt="Dish mounted on an elevated rooftop mast at the permanent install site" loading="lazy">
+          </a>
+          <div class="story-copy">
+            <div class="story-step">18 · Permanent rooftop mount</div>
+            <h4>The dish went up on a fixed mast, clear of surrounding structures.</h4>
+            <p>
+              The dish was mounted on an elevated roof mast to get clean sky visibility toward the GEO
+              belt, echoing the lessons from the QFH's rooftop interference debugging — height and a clear
+              line of sight mattered as much as the antenna itself.
+            </p>
+            <span class="story-outcome">Install: dish mounted and cabled at the permanent site</span>
+          </div>
+        </article>
+
+        <article class="story-card">
+          <a href="assets/IMG_8674.jpeg" target="_blank" rel="noopener">
+            <img src="assets/IMG_8674.jpeg" alt="SatDump showing a synced GOES HRIT downlink at 1694.1 MHz with SNR and decoder status" loading="lazy">
+          </a>
+          <div class="story-copy">
+            <div class="story-step">19 · First GOES HRIT sync</div>
+            <h4>The new chain locked onto the GOES HRIT downlink at 1694.1 MHz.</h4>
+            <p>
+              SatDump showed a clean signal envelope in the FFT and waterfall, with the BPSK demodulator
+              holding roughly 13 dB SNR and both the CCSDS Viterbi and deframer reporting SYNCED. This
+              confirmed the second dish, feed, and SDR chain could independently close the GOES HRIT link.
+            </p>
+            <span class="story-outcome">Result: independent lock on the GOES HRIT downlink</span>
+          </div>
+        </article>
+
+        <article class="story-card">
+          <a href="assets/abi_rgb_ABI_False_Color_map_compressed.webp" target="_blank" rel="noopener">
+            <img src="assets/abi_rgb_ABI_False_Color_map_compressed.webp" alt="Clean full-disk GOES ABI false-color composite with no banding" loading="lazy">
+          </a>
+          <div class="story-copy">
+            <div class="story-step">20 · Banding resolved</div>
+            <h4>The horizontal banding from Phase 2's first GEO capture is gone.</h4>
+            <p>
+              Where the Phase 2 ABI composite showed visible sync-timing banding, this full-disk
+              false-color capture came through clean — confirming the timing and sync issues flagged as an
+              open diagnostic in Phase 2 have been resolved.
+            </p>
+            <span class="story-outcome">Fix: full-disk ABI composite reconstructed without banding artifacts</span>
+          </div>
+        </article>
+
+        <article class="story-card">
+          <a href="assets/ahi_rgb_Clean_Longwave_IR_Window_Band_map_compressed.webp" target="_blank" rel="noopener">
+            <img src="assets/ahi_rgb_Clean_Longwave_IR_Window_Band_map_compressed.webp" alt="Full-disk longwave IR composite from Japan's Himawari-9 AHI, received on the second dish" loading="lazy">
+          </a>
+          <div class="story-copy">
+            <div class="story-step">21 · Himawari AHI milestone</div>
+            <h4>The second dish also pulled in Japan's Himawari-9 AHI broadcast.</h4>
+            <p>
+              Beyond GOES, the larger aperture picked up the Advanced Himawari Imager downlink, producing
+              a clean full-disk longwave-IR composite. A false-color AHI product is still being tuned and
+              is a work in progress, but this milestone shows the receive chain isn't limited to a single
+              satellite family.
+            </p>
+            <span class="story-outcome">Milestone: first cross-constellation GEO capture (GOES + Himawari)</span>
+          </div>
+        </article>
+      </div>
+
+      <p style="font-family:var(--mono);font-size:10.5px;color:var(--text-dim);letter-spacing:0.02em;line-height:1.6;margin-top:1rem;max-width:680px;">
+        Next up for this dish: a motorized az/el actuator to give the mount its own pointing authority,
+        moving it from manual aiming toward a fully autonomous passive ground segment.
+      </p>
     </div>
 
 
