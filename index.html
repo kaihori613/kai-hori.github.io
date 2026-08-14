@@ -151,6 +151,41 @@
     font-weight: 400;
   }
 
+  .hero-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3rem;
+  }
+
+  .hero-text { flex: 1; min-width: 0; }
+
+  .hero-photo-wrap {
+    width: 320px;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+  }
+
+  .hero-photo-wrap img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    display: block;
+    background: var(--bg3);
+  }
+
+  .hero-photo-caption {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    line-height: 1.5;
+    padding: 0.7rem 0.9rem;
+    border-top: 1px solid var(--border);
+  }
+
   .hero-ctas {
     display: flex;
     gap: 1rem;
@@ -934,6 +969,8 @@
     section { padding: 4rem 1.5rem; }
     h1 { font-size: 3rem; }
     .about-grid, .contact-inner { grid-template-columns: 1fr; gap: 2rem; }
+    .hero-top { flex-direction: column-reverse; gap: 2rem; }
+    .hero-photo-wrap { width: 100%; }
     .projects-grid { grid-template-columns: 1fr; }
     .gallery { grid-template-columns: 1fr 1fr; }
     .gallery img { height: 170px; }
@@ -966,16 +1003,24 @@
 
 <!-- HERO -->
 <section id="hero">
-  <div class="hero-label fade-up">Aerospace & Mechanical Engineering · UC Davis</div>
-  <h1 class="fade-up delay-1">Kai<br>Hori.</h1>
-  <p class="hero-tagline fade-up delay-2">
-    Building systems that operate where failure isn't an option —
-    from spacecraft mission design and X-band link budgets to RF hardware,
-    structural analysis, and numerical simulation.
-  </p>
-  <div class="hero-ctas fade-up delay-3">
-    <a href="#projects" class="btn-primary">View Work</a>
-    <a href="#contact" class="btn-ghost">Get in Touch</a>
+  <div class="hero-top">
+    <div class="hero-text">
+      <div class="hero-label fade-up">Aerospace & Mechanical Engineering · UC Davis</div>
+      <h1 class="fade-up delay-1">Kai<br>Hori.</h1>
+      <p class="hero-tagline fade-up delay-2">
+        Building systems that operate where failure isn't an option —
+        from spacecraft mission design and X-band link budgets to RF hardware,
+        structural analysis, and numerical simulation.
+      </p>
+      <div class="hero-ctas fade-up delay-3">
+        <a href="#projects" class="btn-primary">View Work</a>
+        <a href="#contact" class="btn-ghost">Get in Touch</a>
+      </div>
+    </div>
+    <div class="hero-photo-wrap fade-up delay-2">
+      <img src="assets/hero-odin-poster-team.jpg" alt="Kai Hori with the ODIN capstone team at the UC Davis Engineering Design Showcase, presenting their spacecraft inspection mission poster">
+      <div class="hero-photo-caption">ODIN capstone team · UC Davis Engineering Design Showcase</div>
+    </div>
   </div>
   <div class="hero-stats fade-up delay-4">
     <div>
